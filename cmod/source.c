@@ -85,8 +85,8 @@ struct result find_encryption_info(struct mach_header *mh) {
       ret.ptr = eic;
       ret.offset = eic->cryptoff;
       ret.size = eic->cryptsize;
-      ret.offset_id = (uint32_t)((void *)&eic->cryptid - (void *)mh);
-      ret.size_id = sizeof(eic->cryptid);
+      ret.offset_id = (uint32_t)((void *)&eic->cryptoff - (void *)mh);
+      ret.size_id = sizeof(eic->cryptoff) + sizeof(eic->cryptsize) + sizeof(eic->cryptid);
       return ret;
     }
 

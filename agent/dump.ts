@@ -45,14 +45,14 @@ export async function dump(opt: Option = {}) {
     if (!normalize(filename).startsWith(bundle))
       continue;
 
+    await download(filename);
+    downloaded[filename] = true;
+
     const info = ctx.findEncyptInfo!(mod.base) as EncryptInfoTuple;
     const [ptr, offset, size, offsetOfCmd, sizeOfCmd] = info;
 
     if (ptr.isNull())
       continue;
-
-    await download(filename);
-    downloaded[filename] = true;
 
     // skip fat header
     const fatOffset = Process.findRangeByAddress(mod.base)!.file!.offset;

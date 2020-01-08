@@ -106,28 +106,48 @@ export function prepare(c: string) {
   ctx.findEncyptInfo = new NativeFunction(cm['find_encryption_info'], EncryptInfoTuple, ['pointer']);
 }
 
-export function warmup(): void {
-  const { NSFileManager, NSBundle } = ObjC.classes
-  const path = NSBundle.mainBundle().bundlePath().stringByAppendingPathComponent_('Frameworks')
-  const mgr = NSFileManager.defaultManager()
-  const pError = Memory.alloc(Process.pointerSize)
-  pError.writePointer(NULL)
-  const files = mgr.contentsOfDirectoryAtPath_error_(path, pError)
-  const err = pError.readPointer()
+
+function loadFrameworks(base: ObjC.Object) {
+  const NSFileReadNoSuchFileError = 260;
+
+  const { NSFileManager, NSBundle } = ObjC.classes;
+  const path = base.stringByAppendingPathComponent_('Frameworks');
+  const mgr = NSFileManager.defaultManager();
+  const pError = Memory.alloc(Process.pointerSize);
+  pError.writePointer(NULL);
+  const files = mgr.contentsOfDirectoryAtPath_error_(path, pError);
+  const err = pError.readPointer();
   if (!err.isNull()) {
-    const errObj = new ObjC.Object(err)
-    const NSFileReadNoSuchFileError = 260
+    const errObj = new ObjC.Object(err);
     if (errObj.code().valueOf() === NSFileReadNoSuchFileError)
-      return
-    return void console.error(new ObjC.Object(err))
+      return;
+    return void console.error(new ObjC.Object(err));
   }
 
-  const max = files.count()
+  const max = files.count();
   for (let i = 0; i < max; i++) {
-    const name = files.objectAtIndex_(i)
-    const bundle = NSBundle.bundleWithPath_(path.stringByAppendingPathComponent_(name))
-    if (bundle)
-      bundle.load()
+    const name = files.objectAtIndex_(i);
+    const child = path.stringByAppendingPathComponent_(name);
+    const bundle = NSBundle.bundleWithPath_(child);
+    if (bundle) {
+      bundle.load();
+      loadFrameworks(child);
+    }
+  }
+}
+
+export function warmup(): void {
+  const { NSBundle } = ObjC.classes;
+  const base = NSBundle.mainBundle().bundlePath();
+  loadFrameworks(base);
+
+  const dlopen = new NativeFunction(Module.findExportByName(null, 'dlopen')!,
+    'pointer', ['pointer', 'int']);
+  const RTLD_GLOBAL	= 0x8;
+  const RTLD_LAZY = 0x1;
+
+  for (const mod of Process.enumerateModules()) {
+    dlopen(Memory.allocUtf8String(mod.path), RTLD_GLOBAL | RTLD_LAZY);
   }
 }
 

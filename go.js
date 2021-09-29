@@ -10,6 +10,8 @@ const os = require('os')
 const mkdirp = require('./lib/mkdirp')
 const zip = require('./lib/zip')
 
+let silent = false
+
 const BAR_OPTS = {
   format: chalk.cyan('{bar}') +
     chalk.grey(' | {percentage}% | {received}/{size}'),
@@ -194,7 +196,8 @@ class Handler {
 
   async download({ event, session, stat, filename }, data) {
     if (event === 'begin') {
-      console.log(chalk.bold('download'), chalk.greenBright(this.truncate(filename)))
+      if (!silent )
+        console.log(chalk.bold('download'), chalk.greenBright(this.truncate(filename)))
       const output = await this.output(filename)
       const fd = await fs.open(output, 'w', stat.mode)
       const file = new File(session, stat.size, fd)
@@ -366,6 +369,7 @@ async function main() {
     .option('-e, --executable-only', 'dump executables only')
     .option('-z, --zip', 'create zip archive (ipa)')
     .option('-n, --no-extension', 'do not dump extensions')
+    .option('-s, --silent', 'do not print download info')
     .usage('[bundle id or name]')
 
   program.parse(process.argv)
@@ -378,6 +382,9 @@ async function main() {
 
   if (program.list && program.args.length)
     throw new Error('Invalid command')
+
+  if (program.silent)
+    silent = true
 
   let device = null
   if (program.uuid)
